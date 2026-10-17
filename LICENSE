@@ -61,3 +61,16 @@ CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 This is a custom source-available license, not an OSI-approved open-source license.
+
+9. Third-party libraries and LGPL compatibility
+The no-resale and other restrictions in this license apply only to the original
+Chicken Macro application material, not to third-party components licensed
+separately. Their own license permissions and conditions remain in effect.
+
+Notwithstanding other terms of this license, you may modify or replace the LGPL
+library portions used by Chicken Macro, reverse engineer for debugging such
+modifications, and use the supplied application source and build materials to
+recombine or relink Chicken Macro with a modified, interface-compatible library
+and install and run that modified combined work. No term of this application
+license limits these permissions or any further rights required by the LGPL.
+This exception takes precedence over conflicting application license terms.

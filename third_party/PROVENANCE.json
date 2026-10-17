@@ -1,0 +1,27 @@
+[
+  {
+    "file": "licenses/tcl/Tcl-9.0.4-license.terms",
+    "source": "https://raw.githubusercontent.com/tcltk/tcl/core-9-0-4/license.terms",
+    "sha256": "c0a69a2bfd757361ec7e6143973b103c90409316b49e9c88db26ad6388e79f16"
+  },
+  {
+    "file": "licenses/tk/Tk-9.0.4-license.terms",
+    "source": "https://raw.githubusercontent.com/tcltk/tk/core-9-0-4/license.terms",
+    "sha256": "2cde822b93ca16ae535c954b7dfe658b4ad10df2a193628d1b358f1765e8b198"
+  },
+  {
+    "file": "licenses/gnu/GPL-3.0.txt",
+    "source": "https://www.gnu.org/licenses/gpl-3.0.txt",
+    "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+  },
+  {
+    "file": "licenses/gnu/LGPL-3.0.txt",
+    "source": "https://www.gnu.org/licenses/lgpl-3.0.txt",
+    "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+  },
+  {
+    "file": "sources/pynput-1.8.2.tar.gz",
+    "source": "https://files.pythonhosted.org/packages/86/c6/e2d415610cfbc78308bee44218a46124aaa3301b1df08814df819b2254a1/pynput-1.8.2.tar.gz",
+    "sha256": "f493c87157cd3861b4468f7f896857051762f44ed26f1b641e7cc5840a457087"
+  }
+]

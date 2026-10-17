@@ -1,3 +1,5 @@
+import chicken_updates
+import chicken_storage
 import json, os, re, sys, time, threading, queue, ctypes, math, subprocess, traceback, uuid
 import tkinter as tk
 from tkinter import messagebox, simpledialog, filedialog
@@ -16,7 +18,7 @@ MACROS = os.path.join(HERE, 'macros.json')
 LAST = os.path.join(HERE, 'chicken_last_macro.json')
 DEFAULT_HOT = {'rec': 'f8', 'play': 'f9', 'stop': 'f10', 'toggle': 'home'}
 LABELS = {'rec': 'Record', 'play': 'Play', 'stop': 'Stop', 'toggle': 'Disable/Enable'}
-DEFAULTS = {'sounds': True, 'always_on_top': True, 'precise_timing': True, 'loop_delay_ms': 0, 'start_delay_s': 0.0, 'trim_first_delay': True, 'record_move': False, 'move_interval_ms': 30, 'setup_done': False, 'geometry': '', 'skip_ctrl_warning': False, 'admin_on_start': False, 'hide_admin_prompt': False}
+DEFAULTS = {'sounds': True, 'always_on_top': True, 'precise_timing': True, 'loop_delay_ms': 0, 'start_delay_s': 0.0, 'trim_first_delay': True, 'record_move': False, 'move_interval_ms': 30, 'setup_done': False, 'geometry': '', 'skip_ctrl_warning': False, 'admin_on_start': False, 'hide_admin_prompt': False, 'macro_folder': '', 'check_updates_on_start': True}
 INT_KEYS = {'loop_delay_ms', 'move_interval_ms'}
 FLOAT_KEYS = {'start_delay_s'}
 GEOM_RE = re.compile('(\\d+)x(\\d+)([+-]-?\\d+)([+-]-?\\d+)')
@@ -153,18 +155,18 @@ def describe_action(a, i):
     if t == 'wait':
         kind, desc = ('WAIT', 'Pause')
     elif t == 'click':
-        kind, desc = ('MOUSE', f'{a['b'].capitalize()} {('down' if a['p'] else 'up')}  ({a['x']}, {a['y']})')
+        kind, desc = ('MOUSE', f"{a['b'].capitalize()} {('down' if a['p'] else 'up')}  ({a['x']}, {a['y']})")
     elif t == 'move':
-        kind, desc = ('MOVE', f'to ({a['x']}, {a['y']})')
+        kind, desc = ('MOVE', f"to ({a['x']}, {a['y']})")
     elif t == 'scroll':
-        kind, desc = ('SCROLL', f'({a['dx']}, {a['dy']})')
+        kind, desc = ('SCROLL', f"({a['dx']}, {a['dy']})")
     else:
         name = a.get('k') or a.get('c')
         if not name:
             vk = a.get('vk')
             name = chr(vk).lower() if isinstance(vk, int) and 65 <= vk <= 90 else f'vk{vk}'
-        kind, desc = ('KEY', f'{name}  {('down' if a['p'] else 'up')}')
-    return (kind, f'{i + 1:>3}  {kind:<7}{a['d'] * 1000:>9.1f} ms  {desc}')
+        kind, desc = ('KEY', f"{name}  {('down' if a['p'] else 'up')}")
+    return (kind, f"{i + 1:>3}  {kind:<7}{a['d'] * 1000:>9.1f} ms  {desc}")
 
 def mkbtn(parent, text, cmd, bg=CARD2, hover=HOVER, fg=TXT, font=FONT, **kw):
     b = tk.Button(parent, text=text, command=cmd, bg=bg, fg=fg, activebackground=hover, activeforeground=fg, relief='flat', bd=0, cursor='hand2', font=font, **kw)
@@ -227,6 +229,7 @@ class App:
         self.keyboard_listener.start()
         self.root.after(50, self.poll)
         self.root.after(250, self.first_run)
+        self.root.after(4000, self.startup_update_check)
         self.root.mainloop()
 
     @property
@@ -262,6 +265,10 @@ class App:
             return
         for k, default in DEFAULTS.items():
             value = data.get(k)
+            if k == 'macro_folder':
+                if isinstance(value, str):
+                    self.opt[k] = value
+                continue
             if k == 'geometry':
                 if isinstance(value, str) and GEOM_RE.fullmatch(value):
                     self.opt[k] = value
@@ -285,36 +292,12 @@ class App:
         os.replace(tmp, path)
 
     def save_cfg(self):
+        if not getattr(self, '_allow_saves', True):
+            return
         try:
             self.write_json(CFG, {**self.opt, 'hotkeys': self.hot}, indent=1)
         except OSError as e:
             messagebox.showerror('Could not save settings', str(e), parent=self.root)
-
-    def save_macros(self):
-        try:
-            self.write_json(MACROS, {'version': 2, 'macros': self.macros})
-        except OSError as e:
-            messagebox.showerror('Could not save macros', str(e), parent=self.root)
-
-    def load_macros(self):
-        try:
-            with open(MACROS, encoding='utf-8') as f:
-                data = json.load(f)
-            self.macros = [clean_macro(m) for m in data['macros']]
-            return
-        except FileNotFoundError:
-            pass
-        except Exception as e:
-            messagebox.showwarning('Macros not loaded', str(e), parent=self.root)
-            return
-        try:
-            with open(LAST, encoding='utf-8') as f:
-                actions = validate_actions(json.load(f))
-            if actions:
-                self.macros = [new_macro('Macro 1', actions)]
-                self.save_macros()
-        except Exception:
-            pass
 
     def hk(self, name):
         return pretty_combo(self.hot[name])
@@ -386,11 +369,11 @@ class App:
     def refresh_home(self, select=None):
         self.mlist.delete(0, 'end')
         for m in self.macros:
-            self.mlist.insert('end', f' {m['name'][:34]:<36}{(pretty_combo(m['bind']) if m['bind'] else '-'):<21}{len(m['actions'])}')
+            self.mlist.insert('end', f" {m['name'][:34]:<36}{(pretty_combo(m['bind']) if m['bind'] else '-'):<21}{len(m['actions'])}")
         if select is not None and 0 <= select < len(self.macros):
             self.mlist.selection_set(select)
-        self.home_toggle.config(text=f'{('Disable' if self.enabled else 'Enable')} hotkeys [{self.hk('toggle')}]')
-        self.home_stop.config(text=f'■ Stop [{self.hk('stop')}]')
+        self.home_toggle.config(text=f"{('Disable' if self.enabled else 'Enable')} hotkeys [{self.hk('toggle')}]")
+        self.home_stop.config(text=f"■ Stop [{self.hk('stop')}]")
 
     def selected_macro(self):
         sel = self.mlist.curselection()
@@ -571,7 +554,7 @@ class App:
         self.inf_v.set(m['loop'])
         self.loading = False
         self.title_lbl.config(text=m['name'])
-        self.bind_lbl.config(text=f'Shortcut: {pretty_combo(m['bind'])}')
+        self.bind_lbl.config(text=f"Shortcut: {pretty_combo(m['bind'])}")
         self.render()
         self.idle_status()
         self.show_editor()
@@ -620,13 +603,13 @@ class App:
         self.save_cfg()
 
     def refresh_labels(self):
-        self.btn_rec.config(text=f'● Record [{self.hk('rec')}]')
-        self.btn_play.config(text=f'▶ Play [{self.hk('play')}]')
-        self.btn_stop.config(text=f'■ Stop [{self.hk('stop')}]')
-        self.btn_toggle.config(text=f'{('Disable' if self.enabled else 'Enable')} hotkeys [{self.hk('toggle')}]')
+        self.btn_rec.config(text=f"● Record [{self.hk('rec')}]")
+        self.btn_play.config(text=f"▶ Play [{self.hk('play')}]")
+        self.btn_stop.config(text=f"■ Stop [{self.hk('stop')}]")
+        self.btn_toggle.config(text=f"{('Disable' if self.enabled else 'Enable')} hotkeys [{self.hk('toggle')}]")
         if hasattr(self, 'mlist'):
-            self.home_toggle.config(text=f'{('Disable' if self.enabled else 'Enable')} hotkeys [{self.hk('toggle')}]')
-            self.home_stop.config(text=f'■ Stop [{self.hk('stop')}]')
+            self.home_toggle.config(text=f"{('Disable' if self.enabled else 'Enable')} hotkeys [{self.hk('toggle')}]")
+            self.home_stop.config(text=f"■ Stop [{self.hk('stop')}]")
 
     def set_status(self, text, color):
         self.status.config(text=text, fg=color)
@@ -792,7 +775,7 @@ class App:
         w = tk.Toplevel(self.root)
         w.title('Chicken settings')
         self.apply_icon(w)
-        w.geometry('470x430+400+60')
+        w.geometry('620x470+400+60')
         w.configure(bg=BG)
         w.attributes('-topmost', True)
         w.resizable(False, False)
@@ -811,7 +794,7 @@ class App:
                 btns[n].config(bg=CARD2, fg=MUTED)
             frames[name].pack(fill='both', expand=True)
             btns[name].config(bg=CARD, fg=TXT)
-        for name in ('Hotkeys', 'Playback', 'Recording', 'Interface', 'Startup'):
+        for name in ('Hotkeys', 'Playback', 'Recording', 'Interface', 'Startup', 'Files', 'Updates'):
             frames[name] = tk.Frame(body, bg=CARD)
             btns[name] = tk.Button(tabbar, text=name, command=lambda n=name: show(n), bg=CARD2, fg=MUTED, relief='flat', bd=0, font=FONT, cursor='hand2', padx=12, pady=5)
             btns[name].pack(side='left', padx=(0, 2))
@@ -851,6 +834,21 @@ class App:
         self.check(f, 'admin_on_start', 'Request administrator access when Chicken opens')
         self.check(f, 'hide_admin_prompt', "Don't show the startup question")
         tk.Label(f, text='Windows may still ask for approval each time.\nChanges take effect the next time Chicken opens.', bg=CARD, fg=MUTED, font=FONT, justify='left').pack(anchor='w', padx=12, pady=8)
+        f = frames['Files']
+        tk.Label(f, text='Your macro library', bg=CARD, fg=TXT, font=FONT_B).pack(anchor='w', padx=12, pady=(12, 4))
+        self._files_location = tk.Label(f, text=self.opt.get('macro_folder', 'Unavailable'), bg=CARD, fg=MUTED, font=FONT, wraplength=500, justify='left')
+        self._files_location.pack(anchor='w', padx=12)
+        mkbtn(f, 'Open macros folder', self.open_macros_folder, padx=10, pady=4).pack(anchor='w', padx=12, pady=(8, 4))
+        mkbtn(f, 'Change macro location', self.choose_macros_folder, padx=10, pady=4).pack(anchor='w', padx=12, pady=4)
+        tk.Label(f, text='One file per macro. Use Save in the editor to export an action list.\nKeep library.json: it lists the files Chicken uses.', bg=CARD, fg=MUTED, font=FONT, justify='left').pack(anchor='w', padx=12, pady=8)
+        mkbtn(f, 'Delete saved data...', self.delete_saved_data, bg=RED, hover=RED_H, padx=10, pady=4).pack(anchor='w', padx=12, pady=4)
+        mkbtn(f, 'Uninstall Chicken...', self.uninstall_chicken, padx=10, pady=4).pack(anchor='w', padx=12, pady=4)
+        tk.Label(f, text='Data deletion is permanent and requires confirmation.\nUninstall is available in the installed version.', bg=CARD, fg=MUTED, font=FONT, justify='left').pack(anchor='w', padx=12, pady=8)
+        f = frames['Updates']
+        tk.Label(f, text='Chicken ' + chicken_updates.APP_VERSION, bg=CARD, fg=TXT, font=FONT_B).pack(anchor='w', padx=12, pady=(12, 6))
+        self.check(f, 'check_updates_on_start', 'Check for updates when Chicken opens')
+        tk.Label(f, text='Checks the official GitHub release page. No macro data is sent.\nUpdates are never installed automatically.', bg=CARD, fg=MUTED, font=FONT, justify='left').pack(anchor='w', padx=12, pady=8)
+        mkbtn(f, 'Check for updates', self.check_updates, padx=12, pady=5).pack(anchor='w', padx=12, pady=6)
         show('Hotkeys')
 
     def bind_global(self, name):
@@ -1110,7 +1108,7 @@ class App:
         self.playing_id = macro['id']
         self.stop_flag = False
         self.stop_sound_sent = False
-        self.set_status(f'▶ Playing {macro['name'][:18]}', BLUE)
+        self.set_status(f"▶ Playing {macro['name'][:18]}", BLUE)
         self.sound('play')
         reps = 0 if macro['loop'] else macro['repeat']
         actions = json.loads(json.dumps(macro['actions']))
@@ -1258,6 +1256,8 @@ class App:
                         self.finish_capture(data)
                 elif cmd == 'hot':
                     self.handle_hot(data)
+                elif cmd == 'update_result':
+                    self.show_update_result(*data)
         except queue.Empty:
             pass
         self.root.after(50, self.poll)
@@ -1523,5 +1523,229 @@ class App:
         except Exception:
             pass
         messagebox.showinfo('Continuing normally', 'Administrator access was not approved or could not be started.\nChicken is still running with normal access.', parent=self.sw or self.root)
+
+    def load_macros(self):
+        self._library_ready = False
+        self.library = None
+        try:
+            folder = self.opt.get('macro_folder', '')
+            if not folder:
+                folder = str(chicken_storage.documents_folder() / 'Chicken Macro' / 'Macros')
+            self.library = chicken_storage.Library(folder)
+            data = self.library.load()
+            if data is not None:
+                self.macros = [clean_macro(m) for m in data]
+            else:
+                if os.path.exists(MACROS):
+                    with open(MACROS, encoding='utf-8') as f:
+                        legacy = json.load(f)
+                    self.macros = [clean_macro(m) for m in legacy['macros']]
+                elif os.path.exists(LAST):
+                    with open(LAST, encoding='utf-8') as f:
+                        actions = validate_actions(json.load(f))
+                    self.macros = [new_macro('Macro 1', actions)] if actions else []
+                else:
+                    self.macros = []
+                self.library.save(self.macros)
+                check = self.library.load()
+                if check != self.macros:
+                    raise ValueError('The copied macro library could not be verified.')
+            self.opt['macro_folder'] = str(self.library.folder)
+            self._library_ready = True
+            self.save_cfg()
+        except Exception as e:
+            self.macros = []
+            messagebox.showerror('Macro storage unavailable', 'Your old files have not been deleted. Changes will not be saved until storage is available.\n\n' + str(e), parent=self.root)
+
+    def save_macros(self):
+        if not getattr(self, '_allow_saves', True) or not getattr(self, '_library_ready', False):
+            return
+        try:
+            self.library.save(self.macros)
+        except Exception as e:
+            messagebox.showerror('Could not save macros', str(e), parent=self.root)
+
+    def open_macros_folder(self):
+        if not getattr(self, '_library_ready', False):
+            messagebox.showerror('Folder unavailable', 'Restart Chicken after making Documents available.', parent=self.sw or self.root)
+            return
+        try:
+            os.startfile(str(self.library.folder))
+        except OSError as e:
+            messagebox.showerror('Could not open folder', str(e), parent=self.sw or self.root)
+
+    def choose_macros_folder(self):
+        if self.busy() or not getattr(self, '_library_ready', False):
+            return
+        parent = self.sw or self.root
+        base = filedialog.askdirectory(title='Choose a location for Chicken Macro', parent=parent)
+        if not base:
+            return
+        from pathlib import Path
+        target = Path(base) / 'Chicken Macro' / 'Macros'
+        if target.resolve() == self.library.folder.resolve():
+            return
+        if target.exists() and any(target.iterdir()):
+            messagebox.showerror('Choose another location', 'The target Macros folder already contains files. Choose a different location.', parent=parent)
+            return
+        if not messagebox.askokcancel('Copy macro library', 'Copy your macros to:\n' + str(target) + '\n\nThe old folder will remain as a backup. Use the new folder from now on?', parent=parent):
+            return
+        old_folder = self.opt['macro_folder']
+        try:
+            candidate = chicken_storage.Library(target)
+            candidate.save(self.macros)
+            if candidate.load() != self.macros:
+                raise ValueError('Copy verification failed.')
+            self.opt['macro_folder'] = str(target)
+            self.write_json(CFG, {**self.opt, 'hotkeys': self.hot}, indent=1)
+            self.library = candidate
+            self._files_location.config(text=str(target))
+            messagebox.showinfo('Folder changed', 'Your macros were copied. The old folder was kept as a backup.', parent=parent)
+        except Exception as e:
+            self.opt['macro_folder'] = old_folder
+            messagebox.showerror('Folder not changed', str(e), parent=parent)
+
+    def delete_saved_data(self):
+        self._cleanup_result = 10
+        if self.busy() or not getattr(self, '_library_ready', False):
+            return
+        parent = self.sw or self.root
+        text = 'Permanently delete all Chicken data in these locations?\n\nMacro library: ' + str(self.library.folder) + '\nSettings and original migration files: ' + HERE + '\n\nThis removes saved macros, shortcuts, preferences, and the original legacy macro files.\nChicken will close. Reinstalling cannot restore this data.\n\nExported copies, previous custom library folders, development backups, and the app itself are NOT removed.\nOther files in these folders will be left alone.'
+        if not messagebox.askyesno('Delete all saved data?', text, parent=parent, icon='warning', default='no'):
+            return
+        answer = simpledialog.askstring('Confirm permanent deletion', 'Type delete to permanently remove Chicken data (any capitalization):', parent=parent)
+        if answer is None:
+            return
+        if answer.strip().casefold() != 'delete':
+            messagebox.showinfo('Saved data kept', 'The confirmation did not match. Your saved data will not be deleted.', parent=parent)
+            return
+        from pathlib import Path
+        try:
+            targets = self.library.deletion_targets()
+            for path in (CFG, MACROS, LAST, CFG + '.tmp', MACROS + '.tmp', LAST + '.tmp'):
+                p = Path(path)
+                if p.is_symlink():
+                    raise ValueError('A linked data file cannot be safely deleted: ' + str(p))
+                if p.exists():
+                    if not p.is_file() or p.resolve().parent != Path(HERE).resolve():
+                        raise ValueError('Unsafe data path: ' + str(p))
+                    targets.append(p)
+        except Exception as e:
+            messagebox.showerror('Nothing deleted', str(e), parent=parent)
+            return
+        self._allow_saves = False
+        errors = []
+        for p in targets:
+            try:
+                if p.exists():
+                    p.unlink()
+            except OSError as e:
+                errors.append(str(e))
+        for folder in (self.library.folder, self.library.folder.parent, Path(HERE)):
+            try:
+                folder.rmdir()
+            except OSError:
+                pass
+        if errors:
+            messagebox.showerror('Some files could not be deleted', '\n'.join(errors) + '\n\nChicken will close without saving.', parent=parent)
+        else:
+            messagebox.showinfo('Saved data deleted', 'Chicken will now close. The application has not been uninstalled.', parent=parent)
+        self._cleanup_result = 20 if errors else 0
+        self.close_app()
+
+    def uninstall_chicken(self):
+        if self.busy():
+            return
+        if not getattr(sys, 'frozen', False):
+            messagebox.showinfo('Source version', 'This is the Python source version, not an installed app.\nA Windows uninstaller will be available after we build the installer.\n\nUse Delete saved data to remove macros and settings. Delete your development folder manually only if you no longer need it.', parent=self.sw or self.root)
+            return
+        uninstaller = os.path.join(os.path.dirname(sys.executable), 'unins000.exe')
+        if not os.path.isfile(uninstaller):
+            messagebox.showinfo('Portable version', 'No installer uninstaller was found. Delete saved data here if needed, then close Chicken and remove its portable executable manually.', parent=self.sw or self.root)
+            return
+        try:
+            self.save_cfg()
+            self.save_macros()
+            subprocess.Popen([uninstaller], cwd=os.path.dirname(uninstaller))
+            self.close_app()
+        except OSError as e:
+            messagebox.showerror('Could not open uninstaller', str(e), parent=self.sw or self.root)
+
+    def startup_update_check(self):
+        if self.opt.get('check_updates_on_start', False):
+            self.check_updates(manual=False)
+
+    def check_updates(self, manual=True):
+        if getattr(self, '_update_check_busy', False):
+            if manual:
+                messagebox.showinfo('Checking for updates', 'An update check is already in progress.', parent=self.sw or self.root)
+            return
+        self._update_check_busy = True
+
+        def worker():
+            try:
+                info = chicken_updates.check_release()
+            except Exception:
+                info = {'status': 'error', 'message': 'The update check could not be completed.'}
+            self.q.put(('update_result', (info, manual)))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def show_update_result(self, info, manual):
+        if self.recording or self.playing or self.capturing or (self.root.grab_current() is not None):
+            self.root.after(1000, lambda: self.show_update_result(info, manual))
+            return
+        self._update_check_busy = False
+        parent = self.sw or self.root
+        status = info.get('status')
+        if status == 'new':
+            if messagebox.askyesno('Update available', 'Chicken ' + info['version'] + ' is available.\nYou are using ' + chicken_updates.APP_VERSION + '.\n\nOpen the official GitHub release page?\nNothing will be downloaded or installed automatically.', parent=parent):
+                import webbrowser
+                webbrowser.open(chicken_updates.RELEASE_PAGE)
+        elif manual and status == 'current':
+            messagebox.showinfo('Up to date', 'Chicken ' + chicken_updates.APP_VERSION + ' is up to date.', parent=parent)
+        elif manual and status == 'none':
+            messagebox.showinfo('No release available', 'No published stable release with a matching Windows installer is available yet.', parent=parent)
+        elif manual:
+            messagebox.showinfo('Update check unavailable', info.get('message', 'Please try again later.'), parent=parent)
+
+def uninstall_data_confirmation():
+    """Run before installer removes app files; never invoke App startup or autosave."""
+    root = tk.Tk()
+    root.withdraw()
+    root.title('Chicken data removal')
+    root.attributes('-topmost', True)
+    try:
+        from ctypes import wintypes
+        find = ctypes.windll.user32.FindWindowW
+        find.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+        find.restype = wintypes.HWND
+        if find(None, 'Chicken'):
+            messagebox.showwarning('Close Chicken first', 'Chicken is still open. Saved data will NOT be deleted.\nUninstall will continue, keeping your data.', parent=root)
+            return 20
+        ctx = App.__new__(App)
+        ctx.root = root
+        ctx.sw = None
+        ctx.recording = False
+        ctx.playing = False
+        ctx._cleanup_result = 10
+        ctx.opt = dict(DEFAULTS)
+        ctx.hot = dict(DEFAULT_HOT)
+        ctx.load_cfg()
+        folder = ctx.opt.get('macro_folder', '')
+        if not folder:
+            folder = str(chicken_storage.documents_folder() / 'Chicken Macro' / 'Macros')
+        ctx.library = chicken_storage.Library(folder)
+        ctx._library_ready = True
+        ctx.close_app = lambda: None
+        ctx.delete_saved_data()
+        return ctx._cleanup_result
+    except Exception as e:
+        messagebox.showerror('Data removal stopped', 'Saved data could not be completely removed.\n\n' + str(e), parent=root)
+        return 20
+    finally:
+        root.destroy()
 if __name__ == '__main__':
-    App()
+    if '--uninstall-data-confirm' in sys.argv:
+        raise SystemExit(uninstall_data_confirmation())
+    else:
+        App()
