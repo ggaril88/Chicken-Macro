@@ -1,0 +1,63 @@
+Chicken Macro Source-Available License - No Resale
+Version 1.0
+
+Copyright (c) 2026 ggaril88
+
+1. Scope
+This license applies to the original Chicken Macro software and documentation
+made available by the copyright holder under this license (the Software).
+Third-party components remain subject to their own licenses. This license
+does not replace or restrict rights granted directly by third-party licensors.
+
+2. Permission
+Subject to these terms, anyone may use, copy, inspect, modify, and redistribute
+the Software and modified versions, without paying a fee to the copyright holder.
+Personal use, use at work, and internal business use are expressly permitted.
+Using the Software to perform paid work is permitted, provided the Software
+itself is not sold, rented, or otherwise distributed for payment.
+
+3. No resale or paid distribution
+You may not charge a fee, require a purchase, require a donation, or require a
+paid subscription in exchange for receiving, downloading, licensing, or
+accessing a copy of the Software or a modified version.
+You may not rent copies of the Software or a modified version.
+You may not include the Software or a modified version in a paid software
+bundle, paid installer, or paid download offering without prior written
+permission from the copyright holder.
+These restrictions apply even if the Software is renamed or modified.
+They do not prohibit ordinary internal business use or paid work described
+in section 2.
+
+4. Free redistribution
+Every redistributed copy or modified version must include this license and
+the copyright notice. Distribution must preserve recipients' permissions
+under this license and must not remove the no-resale restrictions.
+Modified versions must clearly state that they have been modified and must
+not claim to be an official release without the copyright holder's permission.
+This license does not require publication of modifications' source code.
+
+5. Optional donations
+Voluntary donations are permitted, including donations to the original
+project or a modified version, provided no donation is required to obtain
+or use the Software. No paid tier may be used to provide a copy or modified
+version that is otherwise withheld from non-donors.
+
+6. No trademark permission
+This license does not grant permission to use project names, logos, or
+trademarks to imply endorsement or official status.
+
+7. Termination
+Permissions granted by this license terminate if you fail to comply with
+its terms. Rights lawfully received by other compliant recipients are not
+terminated solely because of your violation.
+
+8. Disclaimer
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. TO THE MAXIMUM EXTENT
+PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+This is a custom source-available license, not an OSI-approved open-source license.
