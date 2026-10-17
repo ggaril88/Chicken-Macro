@@ -12,7 +12,7 @@ A compact Windows macro recorder and player.
 
 ## Project status
 
-Preparing the first Windows release. No official executable is available yet.
+Version 1.0.0 found at https://github.com/ggaril88/Chicken-Macro/releases/tag/v1.0.0
 
 ## Responsible use
 
