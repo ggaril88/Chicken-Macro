@@ -25,3 +25,15 @@ You are responsible for checking the rules of the apps you use.
 
 Holding Ctrl during playback can change the meaning of a macro's keystrokes.
 Use a single key, such as F10, as your Stop shortcut to avoid this conflict.
+
+## License
+
+Chicken Macro is free for personal and workplace use.
+
+You may inspect and modify its source code and share copies for free.
+Selling Chicken Macro or modified versions is prohibited.
+
+This project uses a custom source-available license, not an
+OSI-approved open-source license. See LICENSE for the full terms.
+
+Donations are optional and are not required to download or use Chicken.
